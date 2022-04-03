@@ -120,10 +120,11 @@ class PlaceClient:
     # Draw a pixel at an x, y coordinate in r/place with a specific color
 
     def set_pixel_and_check_ratelimit(
-        self, access_token_in, x, y, color_index_in=18, canvas_index=0
+        self, access_token_in, x, y, color_index_in=18, canvas_index=0, index=0
     ):
         logger.info(
-            "Attempting to place {} pixel at {}, {}",
+            "Thread #{} : Attempting to place {} pixel at {}, {}",
+            index,
             self.color_id_to_name(color_index_in),
             x + (1000 * canvas_index),
             y,
@@ -156,7 +157,7 @@ class PlaceClient:
         }
 
         response = requests.request("POST", url, headers=headers, data=payload)
-        logger.debug("Received response: {}", response.text)
+        logger.debug("Thread #{} : Received response: {}", index, response.text)
 
         # There are 2 different JSON keys for responses to get the next timestamp.
         # If we don't get data, it means we've been rate limited.
@@ -165,14 +166,14 @@ class PlaceClient:
             waitTime = math.floor(
                 response.json()["errors"][0]["extensions"]["nextAvailablePixelTs"]
             )
-            logger.error("Failed placing pixel: rate limited")
+            logger.error("Thread #{} : Failed placing pixel: rate limited", index)
         else:
             waitTime = math.floor(
                 response.json()["data"]["act"]["data"][0]["data"][
                     "nextAvailablePixelTimestamp"
                 ]
             )
-            logger.info("Succeeded placing pixel")
+            logger.info("Thread #{} : Succeeded placing pixel", index)
 
         # THIS COMMENTED CODE LETS YOU DEBUG THREADS FOR TESTING
         # Works perfect with one thread.
@@ -313,7 +314,7 @@ class PlaceClient:
                 x = 0
 
             if y >= self.image_size[1]:
-                logging.info("All pixels correct, trying again in 10 seconds... ")
+                logging.info("Thread #{} : All pixels correct, trying again in 10 seconds... ", index)
 
                 time.sleep(10)
 
@@ -339,7 +340,8 @@ class PlaceClient:
                 )
                 if target_rgb != (69, 42, 0):
                     logger.debug(
-                        "Replacing {} pixel at: {},{} with {} color",
+                        "Thread #{} : Replacing {} pixel at: {},{} with {} color",
+                        index,
                         pix2[x + self.pixel_x_start, y + self.pixel_y_start],
                         x + self.pixel_x_start,
                         y + self.pixel_y_start,
@@ -511,6 +513,7 @@ class PlaceClient:
                         pixel_y_start,
                         pixel_color_index,
                         canvas,
+                        index
                     )
 
                     current_r += 1
